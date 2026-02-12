@@ -4,10 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.fintracker.ui.addtransaction.AddTransactionScreen
 import com.fintracker.ui.auth.LoginScreen
 import com.fintracker.ui.auth.RegisterScreen
 import com.fintracker.ui.main.MainScreen
+import com.fintracker.ui.addtransaction.AddTransactionScreen
 
 @Composable
 fun NavGraph(
@@ -50,3 +50,4 @@ fun NavGraph(
         }
     }
 }
+
