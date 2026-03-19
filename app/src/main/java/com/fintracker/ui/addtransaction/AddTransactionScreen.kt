@@ -1,10 +1,8 @@
 package com.fintracker.ui.addtransaction
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,7 +15,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fintracker.data.model.Category
+import com.fintracker.ui.categories.getIconVector
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,6 +30,8 @@ fun AddTransactionScreen(
     val categories by viewModel.categories.collectAsState()
     val saveState by viewModel.saveState.collectAsState()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     var amountText by remember { mutableStateOf("0") }
     var selectedCategory by remember { mutableStateOf<Category?>(null) }
@@ -38,23 +40,27 @@ fun AddTransactionScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var transactionType by remember { mutableStateOf("expense") }
 
-    // Обработка состояния сохранения
     LaunchedEffect(saveState) {
         when (saveState) {
             is AddTransactionViewModel.SaveState.Success -> {
-                Toast.makeText(context, "Транзакция добавлена", Toast.LENGTH_SHORT).show()
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Транзакция добавлена")
+                }
                 onTransactionAdded()
-                viewModel.resetSaveState()
             }
             is AddTransactionViewModel.SaveState.Error -> {
-                Toast.makeText(context, (saveState as AddTransactionViewModel.SaveState.Error).message, Toast.LENGTH_LONG).show()
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = (saveState as AddTransactionViewModel.SaveState.Error).message,
+                        duration = SnackbarDuration.Long
+                    )
+                }
                 viewModel.resetSaveState()
             }
             else -> {}
         }
     }
 
-    // Дата пикер
     if (showDatePicker) {
         DatePickerDialog(
             onDateSelected = { date ->
@@ -65,146 +71,155 @@ fun AddTransactionScreen(
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Переключатель "Расход / Доход"
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
         ) {
-            FilterChip(
-                selected = transactionType == "expense",
-                onClick = {
-                    transactionType = "expense"
-                    viewModel.setType("expense")
-                    selectedCategory = null
-                },
-                label = { Text("Расход") },
-                modifier = Modifier.padding(end = 8.dp)
-            )
-            FilterChip(
-                selected = transactionType == "income",
-                onClick = {
-                    transactionType = "income"
-                    viewModel.setType("income")
-                    selectedCategory = null
-                },
-                label = { Text("Доход") }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Поле суммы
-        Text(
-            text = "${amountText} ₽",
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Выбор категории
-        Text("Категория", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (categories.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp),
-                contentAlignment = Alignment.Center
+            // Переключатель
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text("Нет категорий. Создайте в настройках.", color = MaterialTheme.colorScheme.error)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.height(200.dp)
-            ) {
-                items(categories) { category ->
-                    CategoryItem(
-                        category = category,
-                        isSelected = selectedCategory?.id == category.id,
-                        onSelect = { selectedCategory = category }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Дата
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Дата", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = { showDatePicker = true }) {
-                Text(SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(selectedDate))
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(Icons.Default.DateRange, contentDescription = "Выбрать дату")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Описание
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Описание (необязательно)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Кастомная клавиатура
-        NumberKeyboard(
-            onNumberClick = { digit ->
-                if (digit == ".") {
-                    if (!amountText.contains(".")) {
-                        amountText += digit
-                    }
-                } else {
-                    if (amountText == "0" && digit != ".") {
-                        amountText = digit
-                    } else {
-                        amountText += digit
-                    }
-                }
-            },
-            onDeleteClick = {
-                amountText = if (amountText.length > 1) {
-                    amountText.dropLast(1)
-                } else {
-                    "0"
-                }
-            },
-            onDoneClick = {
-                if (selectedCategory == null) {
-                    Toast.makeText(context, "Выберите категорию", Toast.LENGTH_SHORT).show()
-                    return@NumberKeyboard
-                }
-                val amount = amountText.toDoubleOrNull() ?: 0.0
-                if (amount <= 0) {
-                    Toast.makeText(context, "Введите сумму больше 0", Toast.LENGTH_SHORT).show()
-                    return@NumberKeyboard
-                }
-                viewModel.saveTransaction(
-                    amount = amount,
-                    categoryId = selectedCategory!!.id,
-                    categoryName = selectedCategory!!.name,
-                    description = description,
-                    date = Timestamp(selectedDate)
+                FilterChip(
+                    selected = transactionType == "expense",
+                    onClick = {
+                        transactionType = "expense"
+                        viewModel.setType("expense")
+                        selectedCategory = null
+                    },
+                    label = { Text("Расход") },
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                FilterChip(
+                    selected = transactionType == "income",
+                    onClick = {
+                        transactionType = "income"
+                        viewModel.setType("income")
+                        selectedCategory = null
+                    },
+                    label = { Text("Доход") }
                 )
             }
-        )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Сумма
+            Text(
+                text = "${amountText} ₽",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Категории (занимают доступное пространство)
+            Text("Категория", style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)   // <-- занимает всё доступное место
+                    .fillMaxWidth()
+            ) {
+                if (categories.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Нет категорий. Создайте в настройках.", color = MaterialTheme.colorScheme.error)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(categories) { category ->
+                            CategoryItem(
+                                category = category,
+                                isSelected = selectedCategory?.id == category.id,
+                                onSelect = { selectedCategory = category }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Дата и описание
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Дата", style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = { showDatePicker = true }) {
+                    Text(SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(selectedDate))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.DateRange, contentDescription = "Выбрать дату")
+                }
+            }
+
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Описание (необязательно)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            // Клавиатура
+            NumberKeyboard(
+                onNumberClick = { digit ->
+                    if (digit == ".") {
+                        if (!amountText.contains(".")) {
+                            amountText += digit
+                        }
+                    } else {
+                        if (amountText == "0" && digit != ".") {
+                            amountText = digit
+                        } else {
+                            amountText += digit
+                        }
+                    }
+                },
+                onDeleteClick = {
+                    amountText = if (amountText.length > 1) {
+                        amountText.dropLast(1)
+                    } else {
+                        "0"
+                    }
+                },
+                onDoneClick = {
+                    if (selectedCategory == null) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Выберите категорию")
+                        }
+                        return@NumberKeyboard
+                    }
+                    val amount = amountText.toDoubleOrNull() ?: 0.0
+                    if (amount <= 0) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Введите сумму больше 0")
+                        }
+                        return@NumberKeyboard
+                    }
+                    viewModel.saveTransaction(
+                        amount = amount,
+                        type = transactionType,
+                        categoryId = selectedCategory!!.id,
+                        categoryName = selectedCategory!!.name,
+                        description = description,
+                        date = Timestamp(selectedDate)
+                    )
+                }
+            )
+        }
     }
 }
 
@@ -233,7 +248,7 @@ fun CategoryItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Folder, // TODO: загружать по имени
+                imageVector = getIconVector(category.icon),
                 contentDescription = null,
                 modifier = Modifier.size(24.dp)
             )
@@ -253,6 +268,7 @@ fun CategoryItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatePickerDialog(
     onDateSelected: (Date) -> Unit,
@@ -262,7 +278,7 @@ fun DatePickerDialog(
     val year = calendar.get(Calendar.YEAR)
     val month = calendar.get(Calendar.MONTH)
     val day = calendar.get(Calendar.DAY_OF_MONTH)
-    @OptIn(ExperimentalMaterial3Api::class)
+
     androidx.compose.material3.DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -280,11 +296,8 @@ fun DatePickerDialog(
             }
         }
     ) {
-        // TODO: реализовать полноценный DatePicker через rememberDatePickerState
-        // Пока просто статичный диалог
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Выберите дату (реализация с календарём будет позже)")
-            // В продакшене используйте rememberDatePickerState
         }
     }
 }

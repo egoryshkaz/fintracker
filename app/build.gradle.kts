@@ -42,6 +42,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.litert.support.api)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 
     implementation(libs.androidx.core.ktx)

@@ -14,7 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
-    onNavigateToMain: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
     viewModel: AuthViewModel = viewModel()
 ) {
     val authState by viewModel.authState.collectAsState()
@@ -27,7 +27,7 @@ fun RegisterScreen(
         when (val state = authState) {
             is AuthState.Success -> {
                 Toast.makeText(context, "Регистрация успешна!", Toast.LENGTH_SHORT).show()
-                onNavigateToMain()
+                onNavigateToOnboarding() // переход на онбординг
                 viewModel.resetState()
             }
             is AuthState.Error -> {

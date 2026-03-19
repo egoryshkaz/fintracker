@@ -7,6 +7,6 @@ data class Budget(
     val id: String = "",
     val userId: String = "",
     val month: String = "",          // формат "yyyy-MM"
-    val totalBudget: Double = 0.0,
-    val categories: Map<String, Double> = emptyMap() // categoryId -> лимит
+    val amount: Double = 0.0,
+    val createdAt: Long = System.currentTimeMillis()
 )

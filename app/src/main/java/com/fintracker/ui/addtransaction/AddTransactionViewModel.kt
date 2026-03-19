@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.fintracker.data.model.Category
 import com.fintracker.data.model.Transaction
 import com.fintracker.data.repository.TransactionRepository
+import com.fintracker.data.repository.CategoryRepository   // <-- ИМПОРТ
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +13,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AddTransactionViewModel(
-    private val repository: TransactionRepository = TransactionRepository()
+    private val transactionRepository: TransactionRepository = TransactionRepository(),
+    private val categoryRepository: CategoryRepository = CategoryRepository()   // <-- ДОБАВЛЕНО
 ) : ViewModel() {
 
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
@@ -34,10 +36,11 @@ class AddTransactionViewModel(
 
     private fun loadCategories() {
         viewModelScope.launch {
-            repository.getCategories(currentType).collect { result ->
+            // Используем categoryRepository с реальным временем
+            categoryRepository.getCategoriesRealtime(currentType).collect { result ->
                 result.fold(
                     onSuccess = { _categories.value = it },
-                    onFailure = { /* обработать ошибку */ }
+                    onFailure = { /* обработка ошибки */ }
                 )
             }
         }
@@ -45,6 +48,7 @@ class AddTransactionViewModel(
 
     fun saveTransaction(
         amount: Double,
+        type: String,
         categoryId: String,
         categoryName: String,
         description: String,
@@ -54,13 +58,13 @@ class AddTransactionViewModel(
             _saveState.value = SaveState.Loading
             val transaction = Transaction(
                 amount = amount,
-                type = currentType,
+                type = type,
                 categoryId = categoryId,
                 categoryName = categoryName,
                 description = description,
                 date = date
             )
-            val result = repository.addTransaction(transaction)
+            val result = transactionRepository.addTransaction(transaction)
             _saveState.value = result.fold(
                 onSuccess = { SaveState.Success },
                 onFailure = { SaveState.Error(it.message ?: "Ошибка сохранения") }
